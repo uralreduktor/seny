@@ -1,0 +1,105 @@
+---
+description: Стандарт Документирования Разработки
+alwaysApply: false
+---
+# Стандарт Документирования Разработки для Проекта TenderFlow KB AI
+
+**Стандарт Документирования Разработки**. Этот стандарт определяет правила и рекомендации по созданию, поддержке и структурированию документации для всего жизненного цикла разработки проекта TenderFlow KB AI. Он ориентирован на обеспечение consistency, читаемости, актуальности и удобства использования документации для команды (инженеры, менеджеры, руководители), с учетом специфики проекта: AI-интеграция (RAG, OCR, embeddings), модули (Tender Management, Pricing KB AI, DocFlow) и технологический стек (FastAPI, React, PostgreSQL и т.д.).
+
+Стандарт разделен на разделы: общие принципы, структура документации, инструменты, правила для типов документов, процессы обновления и примеры. Он учитывает ключевые аспекты из документов, такие как сценарии использования (scenarios.md), функциональные/нефункциональные требования (goals_and_problem_statement.md) и этапы разработки (MVP-подход из project_brief.md).
+
+## 1. Общие Принципы Документирования
+- **Цель**: Документация должна быть полной, но краткой; помогать в онбординге новых сотрудников, отладке, масштабировании и аудите. Она должна отражать реальный код/процессы, а не быть "отчетом для галочки".
+- **Язык**: Основной — русский (для бизнес-сущностей как ТЗ, ТКП из glossary.md), технические термины — английский (e.g., "RAG", "embeddings"). Используйте глоссарий (glossary.md) для единообразия терминов.
+- **Формат**: Markdown (.md) для большинства документов (читабельность в GitHub). Для сложных диаграмм — PlantUML или Draw.io (экспорт в SVG/PNG). PDF/Word — только для генерируемых артефактов (e.g., ТКП).
+- **Версионирование**: Все документы в Git (main branch для stable, feature/ branches для drafts). Используйте semantic versioning (e.g., v1.0.0) для ключевых docs (tech_stack.md).
+- **Доступность**: Хранить в репозитории проекта (docs/ folder). Используйте MkDocs или Sphinx для генерации сайта документации (интеграция с CI/CD).
+- **Актуальность**: Документация считается устаревшей, если не обновлена в течение 1 месяца после изменений в коде. Обязательно обновлять при PR (pull request).
+- **Конфиденциальность**: Маркировать sensitive разделы (e.g., API keys, расчеты цен) как [CONFIDENTIAL]. Шифровать в Git (git-crypt) или хранить в отдельном secure repo.
+
+## 2. Структура Документации Проекта
+Документация организована в иерархическую структуру в папке `docs/` репозитория:
+
+- **docs/overview/**: Высокий уровень (project_brief.md, goals_and_problem_statement.md).
+  - project_overview.md: Назначение, цели, аудитория, модули (из project_brief.md).
+  - glossary.md: Термины и аббревиатуры (обновлять из glossary.md).
+- **docs/architecture/**: Архитектура и дизайн.
+  - tech_stack.md: Стек технологий, версии (из tech_stack.md).
+  - ai_components.md: Детали AI (RAG, embeddings, OCR из goals_and_problem_statement.md).
+  - diagrams/: UML-диаграммы (e.g., data_flow.puml для RAG-паттерна).
+- **docs/functional/**: Функциональные описания.
+  - scenarios.md: Ключевые пользовательские сценарии (из scenarios.md).
+  - requirements.md: FR/NFR (из goals_and_problem_statement.md).
+  - entities.md: Сущности (Тендер, Позиция, Расчет из glossary.md).
+- **docs/development/**: Для разработчиков.
+  - setup.md: Инструкции по установке (Docker Compose/Kubernetes из tech_stack.md).
+  - coding_standards.md: Правила кода (e.g., TypeScript strict, Black для Python).
+  - api_docs.md: OpenAPI/Swagger для FastAPI эндпоинтов (автогенерация).
+  - frontend_rules.md: Правила для React (из предыдущих правил для Cursor).
+  - backend_rules.md: Правила для FastAPI (из предыдущих правил для Cursor).
+- **docs/operations/**: Эксплуатация.
+  - deployment.md: Деплой, мониторинг (Grafana, Prometheus из tech_stack.md).
+  - maintenance.md: Бэкапы, уведомления о дедлайнах (из FR-12).
+- **docs/testing/**: Тестирование.
+  - test_plan.md: Unit (Pytest/Vitest), integration, E2E (Cypress).
+  - ai_validation.md: Тестирование OCR (>90% acc), RAG (точность >70% из MVP criteria).
+- **docs/changelog/**: История изменений.
+  - CHANGELOG.md: По семантике (Added, Changed, Fixed).
+
+## 3. Инструменты для Документирования
+- **Редактирование**: VS Code / Cursor IDE с расширениями (Markdownlint, Draw.io Integration).
+- **Генерация**: 
+  - API docs: FastAPI встроенный Swagger.
+  - Диаграммы: Mermaid в Markdown для простых, PlantUML для сложных.
+  - AI-помощь: Используйте Claude/GPT через Cursor для генерации черновиков (e.g., "Сгенерируй раздел по сценарию: OCR чертежей" с учетом правил из .cursor/rules.md).
+- **Коллаборация**: GitHub Issues/PR для ревью docs. Используйте labels: "docs-update", "docs-review".
+- **Публикация**: MkDocs с темой Material for MkDocs (deploy на GitHub Pages или internal server).
+
+## 4. Правила для Типов Документов
+- **README.md (корень репозитория)**: Краткий обзор, quick start, ссылки на docs/. Обязательно: "Для деталей см. docs/".
+- **Функциональные спецификации**: Используйте таблицы для требований (e.g., | FR-ID | Описание | из goals_and_problem_statement.md). Добавляйте ссылки на сценарии.
+- **Технические дизайны**: Включайте код-сниппеты (```python
+- **Кодовая документация**: 
+  - Docstrings: Google-style для Python ("""Summary. Args: ... Returns: ...""").
+  - JSDoc для TypeScript (/** @param {string} id - Tender ID */).
+  - Inline comments: Только для сложной логики (e.g., в OCR-task: # Extract rotated text using YOLO).
+- **Изменения**: В PR описывайте "Что изменилось в docs?" в шаблоне PR.
+- **Примеры**: Для сценариев — нумерованные списки (из scenarios.md). Для кода — runnable snippets.
+
+## 5. Процессы Обновления и Ревью
+- **Создание**: При новой фиче (e.g., AI-ассистент) — создайте draft в branch, добавьте в docs/functional/.
+- **Ревью**: Обязательно 1+ ревьюер (техлид или peer). Проверять: accuracy, completeness, соответствие глоссарию.
+- **Обновление**: После релиза (e.g., MVP1 из project_brief.md) — обновить CHANGELOG и tech_stack.md. Автоматизировать: GitHub Actions для проверки stale docs (если >1 месяц без изменений).
+- **Аудит**: Ежеквартально — проверить актуальность (e.g., версии в tech_stack.md на 2025–2026).
+- **Метрики**: Цель — 100% coverage ключевых фич (e.g., все FR задокументированы). Используйте дашборд (из FR-10) для трекинга.
+
+## 6. Примеры Документирования
+### Пример: Раздел по AI-Поиску (из docs/architecture/ai_components.md)
+```markdown
+## Интеллектуальный Поиск Похожих Проектов (FR-4)
+
+### Описание
+Поиск по параметрам (мощность, i) и NLP. Использует embeddings для векторного поиска.
+
+### Архитектура
+- Embedding: OpenAI text-embedding-3-large (3072 dim).
+- Хранение: pgvector в PostgreSQL.
+- RAG: LangChain -> retrieve -> Claude 3.5 для ранжирования.
+
+### Код-Сниппет (services/ai_search.py)
+```python
+from langchain import Chain
+from pgvector import Vector
+
+async def search_similar(db, query: str):
+    embedding = openai.embeddings.create(input=query).data[0].embedding
+    results = await db.execute(select(Calculation).order_by(Calculation.embedding.cosine_distance(Vector(embedding))).limit(5))
+    return chain.invoke({"query": query, "docs": results})
+```
+
+### Сценарий
+1. Пользователь вводит: "червячный редуктор i=50".
+2. Генерация embedding.
+3. Поиск в pgvector (<2 сек).
+4. LLM: "Топ-5 с объяснениями".
+```

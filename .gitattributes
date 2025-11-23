@@ -1,0 +1,45 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted
+# to native line endings on checkout.
+*.md text
+*.txt text
+*.json text
+*.yaml text
+*.yml text
+*.py text
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.css text
+*.html text
+*.sh text
+*.yml text
+*.yaml text
+
+# Denote all files that are truly binary and should not be modified.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Python
+*.py diff=python
+
+# Frontend
+*.lock binary
+
+# OpenAPI
+*.json linguist-generated=true
+frontend/src/api/generated/** linguist-generated=true
+

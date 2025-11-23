@@ -1,0 +1,44 @@
+---
+description: Frontend
+alwaysApply: false
+---
+# Cursor Rules for TenderFlow KB AI Frontend
+
+## Общий контекст проекта
+- Проект: TenderFlow KB AI — SPA для управления тендерами (закупки редукторов). Модули: Tender Management (канбан, дедлайны), Pricing KB AI (расчеты, AI-поиск), DocFlow (генерация ТКП, автозаполнение).
+- Технологический стек: React 18, TypeScript, TanStack Query (для API), Tailwind CSS, Vite (сборка). Backend: FastAPI, PostgreSQL + pgvector. AI: Claude 3.5 / GPT-4o, LangChain/LlamaIndex, OCR (YOLOv11, EasyOCR).
+- Сущности из глоссария: Тендер, ЭТП, ТЗ, ТКП, Редуктор, КД, Позиция, БГ, ЭП, OCR, RAG, Embedding, AI-ассистент, Канбан-доска.
+- Ключевые сценарии: Создание тендера, AI-поиск похожих расчетов, генерация ТКП, дашборд с аналитикой, OCR чертежей.
+- Нефункциональные: Поиск <2 сек, UI интуитивный, ролевая модель (инженер, менеджер), масштабируемость до 50 пользователей.
+
+## Правила генерации кода
+- Всегда используй строгий TypeScript: no any, используй interfaces для сущностей (e.g., interface Tender { id: string; status: 'Новый' | 'Расчёт'; positions: Position[]; }).
+- Компоненты: Только functional components с hooks. Структура: src/components (UI: KanbanBoard, TenderCard), src/pages (TenderDashboard, CalculationPage), src/api (queries: useGetTenders), src/types (Tender, Position из glossary.md).
+- **API клиенты**: Используй сгенерированные TypeScript клиенты из `src/api/generated` (OpenAPI Generator). НЕ создавай типы вручную — они генерируются из OpenAPI спецификации FastAPI. Импортируй: `import { TendersApi, TenderResponse } from '@/api/generated'`.
+- TanStack Query: Все API через useQuery/useMutation с использованием сгенерированных клиентов. Query keys: ['tenders', tenderId]. StaleTime: 5 мин для справочных. Error handling: с react-hot-toast.
+- Tailwind: Только utility classes (e.g., className="flex flex-col bg-white p-4 rounded-md"). Кастом: extend colors { primary: '#007bff' } для брендинга ТКП.
+- State management: useState для local, Context для global (e.g., CurrentTenderContext). No Redux.
+- Производительность: Memoize компоненты (React.memo), lazy-load pages (React.lazy). Для дашбордов: pagination в queries.
+- Интеграция AI: Для чата ассистента — компонент с WebSocket или polling к backend RAG. Для OCR: FileUpload компонент с preview (use react-dropzone).
+- Сценарии-specific:
+  - Канбан: Используй react-beautiful-dnd для drag-and-drop стадий (Новый → Расчёт → Документы → Подача → Результат).
+  - Поиск: Input с debounce, useQuery для векторного поиска (embeddings).
+  - Генерация ТКП: Button onClick -> mutation -> download PDF/Zip.
+  - Дашборд: Charts с recharts, таблицы с @tanstack/react-table.
+
+## Правила рефакторинга и дебаггинга
+- Рефактор: Улучшай типизацию, удаляй unused vars, оптимизируй renders (useCallback/useMemo).
+- Дебаг: Предлагай console.log или React DevTools. Для ошибок TanStack: check queryKey/invalidateQueries.
+- Безопасность: No hard-coded API keys, используй .env (VITE_API_URL). Role-based: conditional render по user.role.
+
+## Стиль и конвенции
+- Форматирование: Prettier (singleQuotes, semi). ESLint: extends 'react-app', '@typescript-eslint/recommended'.
+- Коммиты: Conventional commits (feat:, fix:). Branches: feature/kanban-board.
+- Тесты: Vitest для units (hooks), Cypress для E2E (сценарии вроде загрузки чертежа -> извлечение params).
+- **OpenAPI клиент**: После изменений API на backend запускай регенерацию клиента: `npm run generate-api` (скрипт в package.json). НЕ редактируй файлы в `src/api/generated` вручную — они перезаписываются при генерации.
+
+## Ограничения
+- Не генерируй backend-код (FastAPI) здесь — только frontend.
+- Учитывай NFR: <2 сек на поиск — оптимизируй queries.
+- Если промпт неясен, уточни: "Уточните сценарий из scenarios.md".
+

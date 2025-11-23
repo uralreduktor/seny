@@ -1,0 +1,26 @@
+# Конфигурация OpenAPI Generator для TenderFlow KB AI
+# Используется для генерации TypeScript клиентов из OpenAPI спецификации FastAPI
+
+generatorName: typescript-axios
+inputSpec: http://localhost:8000/openapi.json
+outputDir: ./frontend/src/api/generated
+
+# Дополнительные свойства для TypeScript генератора
+additionalProperties:
+  supportsES6: true
+  typescriptThreePlus: true
+  withInterfaces: true
+  enumPropertyNaming: original
+  stringEnums: true
+  modelPropertyNaming: original
+  npmName: "@tenderflow/api-client"
+  npmVersion: "1.0.0"
+  withSeparateModelsAndApi: true
+  apiPackage: api
+  modelPackage: models
+
+# Глобальные настройки
+globalProperties:
+  apiTests: false
+  modelTests: false
+
