@@ -44,6 +44,7 @@ coverage.xml
 cython_debug/
 *.pyx
 .env
+.env.example
 .venv
 env/
 venv/
@@ -64,6 +65,7 @@ venv.bak/
 *.swo
 *~
 .DS_Store
+.cursor/
 
 # Node.js / Frontend
 node_modules/
