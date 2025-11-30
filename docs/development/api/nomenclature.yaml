@@ -188,6 +188,100 @@ paths:
                 $ref: '#/components/schemas/ClassSchemaVersion'
         '409':
           $ref: '#/components/responses/Conflict'
+  /nomenclature/nodes/{nodeId}/schemas/{version}/diff:
+    parameters:
+      - $ref: '#/components/parameters/NodeId'
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: Получить diff схемы атрибутов
+      operationId: getClassSchemaDiff
+      responses:
+        '200':
+          description: Разница между текущей и предыдущей версиями
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassSchemaDiff'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /nomenclature/presets:
+    get:
+      summary: Список пресетов атрибутов
+      operationId: listAttributePresets
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttributePreset'
+    post:
+      summary: Создать пресет атрибутов
+      operationId: createAttributePreset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributePresetCreate'
+      responses:
+        '201':
+          description: Пресет создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributePreset'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /nomenclature/presets/{presetId}:
+    parameters:
+      - name: presetId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: Получить пресет
+      operationId: getAttributePreset
+      responses:
+        '200':
+          description: Успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributePreset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Обновить пресет
+      operationId: updateAttributePreset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributePresetUpdate'
+      responses:
+        '200':
+          description: Пресет обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributePreset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Архивировать пресет
+      operationId: archiveAttributePreset
+      responses:
+        '204':
+          description: Пресет архивирован
   /nomenclature/cards:
     get:
       summary: Поиск карточек
@@ -206,6 +300,15 @@ paths:
           schema:
             type: string
           description: Поиск по названию, кодам, синонимам
+        - in: query
+          name: search_mode
+          schema:
+            type: string
+            enum: [text, semantic, combined]
+          description: >
+            Режим поиска: text — подстрочный pg_trgm, semantic — pgvector по
+            ai_embedding, combined — усреднение обоих скорингов.
+          default: text
         - in: query
           name: manufacturer
           schema:
@@ -283,6 +386,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NomenclatureCard'
+        '400':
+          description: Ошибка валидации атрибутов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaValidationError'
   /nomenclature/cards/{cardId}:
     parameters:
       - $ref: '#/components/parameters/CardId'
@@ -314,6 +423,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NomenclatureCard'
+        '400':
+          description: Ошибка валидации атрибутов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaValidationError'
         '409':
           $ref: '#/components/responses/Conflict'
   /nomenclature/cards/{cardId}/lifecycle:
@@ -335,6 +450,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NomenclatureCard'
+        '400':
+          description: Нарушены правила перехода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleValidationError'
         '409':
           $ref: '#/components/responses/Conflict'
   /nomenclature/cards/{cardId}/versions:
@@ -525,6 +646,51 @@ components:
           type: string
         title:
           type: string
+        description:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [draft, review, published, archived]
+        json_schema:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - title
+        - json_schema
+    AttributePresetCreate:
+      type: object
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        json_schema:
+          type: object
+        version:
+          type: integer
+          default: 1
+      required:
+        - code
+        - title
+        - json_schema
+    AttributePresetUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        json_schema:
+          type: object
         version:
           type: integer
     NomenclatureCard:
@@ -536,6 +702,18 @@ components:
           type: integer
         node_version:
           type: integer
+        segment_code:
+          type: string
+          nullable: true
+        family_code:
+          type: string
+          nullable: true
+        class_code:
+          type: string
+          nullable: true
+        category_code:
+          type: string
+          nullable: true
         code:
           type: string
         canonical_name:
@@ -560,6 +738,10 @@ components:
           type: string
           format: date-time
           nullable: true
+        price_confidence:
+          type: number
+          format: float
+          nullable: true
         methodology_ids:
           type: array
           items:
@@ -579,6 +761,17 @@ components:
         tags:
           type: object
           additionalProperties: true
+        related_nomenclature_ids:
+          type: array
+          items:
+            type: integer
+        audit_log_id:
+          type: integer
+          nullable: true
+        search_confidence:
+          type: number
+          format: float
+          nullable: true
       required:
         - id
         - node_id
@@ -602,6 +795,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFileInput'
+        price_confidence:
+          type: number
+          format: float
+          nullable: true
         methodology_ids:
           type: array
           items:
@@ -610,6 +807,10 @@ components:
           type: array
           items:
             type: string
+        related_nomenclature_ids:
+          type: array
+          items:
+            type: integer
       required:
         - node_id
         - canonical_name
@@ -643,6 +844,14 @@ components:
         price_valid_until:
           type: string
           format: date-time
+        price_confidence:
+          type: number
+          format: float
+          nullable: true
+        related_nomenclature_ids:
+          type: array
+          items:
+            type: integer
     CardLifecycleChange:
       type: object
       properties:
@@ -737,6 +946,51 @@ components:
         last_reviewed_at:
           type: string
           format: date-time
+    SchemaValidationError:
+      type: object
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+    LifecycleValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: string
+    ClassSchemaDiff:
+      type: object
+      properties:
+        node_id:
+          type: integer
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        diff:
+          type: object
+          properties:
+            added:
+              type: object
+              additionalProperties: {}
+            removed:
+              type: array
+              items:
+                type: string
+            changed:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  old:
+                    type: object
+                  new:
+                    type: object
     PaginatedNomenclatureCards:
       type: object
       properties:

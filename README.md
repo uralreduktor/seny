@@ -127,4 +127,3 @@ npm run generate-api
 ## 👥 Команда
 
 Ural Reduktor
-

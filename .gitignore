@@ -44,7 +44,7 @@ coverage.xml
 cython_debug/
 *.pyx
 .env
-.env.example
+# .env.example - должен быть в репозитории как шаблон
 .venv
 env/
 venv/
@@ -198,3 +198,4 @@ coverage.xml
 # OpenAPI Generator
 openapi-generator-config.yaml.bak
 
+passw

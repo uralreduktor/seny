@@ -8,7 +8,7 @@ from typing import List, Optional, Sequence
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.pricing_kb_ai.enums import LifecycleStatus
+from app.modules.pricing_kb_ai.enums import LifecycleStatus, NodeType, SearchMode
 from app.modules.pricing_kb_ai.models.nomenclature import Nomenclature
 from app.modules.pricing_kb_ai.models.nomenclature_card_metadata import (
     NomenclatureCardSynonym,
@@ -29,6 +29,19 @@ from app.modules.pricing_kb_ai.schemas.nomenclature_cards import (
     PaginatedCards,
     PaginationMeta,
 )
+from app.modules.pricing_kb_ai.services.nomenclature_lifecycle import (
+    LifecycleValidationError,
+    NomenclatureLifecycleService,
+)
+from app.modules.pricing_kb_ai.services.schema_registry import (
+    SchemaRegistry,
+    SchemaRegistryError,
+    SchemaValidationError,
+)
+from app.modules.pricing_kb_ai.services.semantic_search import (
+    SemanticSearchError,
+    SemanticSearchService,
+)
 
 
 def _generate_card_code(prefix: str) -> str:
@@ -37,6 +50,42 @@ def _generate_card_code(prefix: str) -> str:
 
 
 class NomenclatureCardService:
+    @staticmethod
+    async def _collect_classification_codes(
+        db: AsyncSession, node: NomenclatureNode
+    ) -> dict[str, Optional[str]]:
+        """
+        Walks up the classifier tree to capture codes for each hierarchy level.
+        """
+        codes: dict[str, Optional[str]] = {
+            "segment_code": None,
+            "family_code": None,
+            "class_code": None,
+            "category_code": None,
+        }
+        current: Optional[NomenclatureNode] = node
+        visited: set[int] = set()
+
+        while current and current.id not in visited:
+            if current.node_type == NodeType.SEGMENT:
+                codes["segment_code"] = current.code
+            elif current.node_type == NodeType.FAMILY:
+                codes["family_code"] = current.code
+            elif current.node_type == NodeType.CLASS:
+                codes["class_code"] = current.code
+            elif current.node_type == NodeType.CATEGORY:
+                codes["category_code"] = current.code
+            visited.add(current.id)
+
+            if current.parent is not None:
+                current = current.parent
+            elif current.parent_id:
+                current = await db.get(NomenclatureNode, current.parent_id)
+            else:
+                current = None
+
+        return codes
+
     @staticmethod
     async def list_cards(
         db: AsyncSession,
@@ -53,6 +102,7 @@ class NomenclatureCardService:
         sort_order: str,
         page: int,
         page_size: int,
+        search_mode: SearchMode = SearchMode.TEXT,
     ) -> tuple[List[Nomenclature], PaginationMeta]:
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
@@ -71,11 +121,23 @@ class NomenclatureCardService:
             )
         if code:
             base_stmt = base_stmt.where(func.lower(Nomenclature.code) == code.lower())
-        if search:
-            pattern = f"%{search.lower()}%"
+        normalized_search = search.strip() if search else None
+        text_similarity_expr = None
+        semantic_similarity_expr = None
+        similarity_expr = None
+        confidence_expr = None
+        if normalized_search:
+            lowered_search = normalized_search.lower()
+            pattern = f"%{lowered_search}%"
             base_stmt = base_stmt.where(
                 func.lower(Nomenclature.canonical_name).like(pattern)
                 | func.lower(Nomenclature.code).like(pattern)
+            )
+            text_similarity_expr = func.greatest(
+                func.similarity(
+                    func.lower(Nomenclature.canonical_name), lowered_search
+                ),
+                func.similarity(func.lower(Nomenclature.code), lowered_search),
             )
         if has_methodology is not None:
             if has_methodology:
@@ -93,6 +155,40 @@ class NomenclatureCardService:
         if base_price_max is not None:
             base_stmt = base_stmt.where(Nomenclature.base_price <= base_price_max)
 
+        search_vector: Optional[List[float]] = None
+        if normalized_search and search_mode in (
+            SearchMode.SEMANTIC,
+            SearchMode.COMBINED,
+        ):
+            try:
+                search_vector = await SemanticSearchService.build_query_embedding(
+                    normalized_search
+                )
+            except SemanticSearchError as exc:
+                raise ValueError(str(exc)) from exc
+            semantic_similarity_expr = 1 - Nomenclature.ai_embedding.cosine_distance(
+                search_vector
+            )
+            if search_mode == SearchMode.SEMANTIC:
+                base_stmt = base_stmt.where(Nomenclature.ai_embedding.is_not(None))
+
+        if normalized_search:
+            if search_mode == SearchMode.TEXT:
+                similarity_expr = text_similarity_expr
+            elif search_mode == SearchMode.SEMANTIC:
+                similarity_expr = semantic_similarity_expr
+            else:
+                similarity_expr = (
+                    func.coalesce(text_similarity_expr, 0)
+                    + func.coalesce(semantic_similarity_expr, 0)
+                ) / 2
+
+        if similarity_expr is not None:
+            confidence_expr = func.coalesce(similarity_expr, 0).label(
+                "search_confidence"
+            )
+            base_stmt = base_stmt.add_columns(confidence_expr)
+
         sort_column = {
             "updated_at": Nomenclature.updated_at,
             "code": Nomenclature.code,
@@ -103,13 +199,30 @@ class NomenclatureCardService:
 
         total_stmt = select(func.count()).select_from(base_stmt.subquery())
         total = await db.scalar(total_stmt)
+
+        order_by_expressions = []
+        if confidence_expr is not None:
+            order_by_expressions.append(confidence_expr.desc())
+        order_by_expressions.append(sort_expr)
+        order_by_expressions.append(Nomenclature.id)
+
         stmt = (
-            base_stmt.order_by(sort_expr, Nomenclature.id)
+            base_stmt.order_by(*order_by_expressions)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
         result = await db.execute(stmt)
-        items = result.scalars().unique().all()
+        if confidence_expr is not None:
+            rows = result.unique().all()
+            items = []
+            for row in rows:
+                card = row[0]
+                confidence_value = row[1]
+                if confidence_value is not None:
+                    setattr(card, "search_confidence", float(confidence_value))
+                items.append(card)
+        else:
+            items = result.scalars().unique().all()
 
         meta = PaginationMeta(
             page=page,
@@ -133,12 +246,23 @@ class NomenclatureCardService:
         if not node:
             raise ValueError("Node not found")
 
+        try:
+            await SchemaRegistry.validate_payload(
+                db, node.id, payload.attributes_payload or {}
+            )
+        except (SchemaRegistryError, SchemaValidationError) as exc:
+            raise ValueError(str(exc)) from exc
+
+        classification_codes = (
+            await NomenclatureCardService._collect_classification_codes(db, node)
+        )
         code = payload.code or _generate_card_code(node.code)
         card = Nomenclature(
             code=code,
             canonical_name=payload.canonical_name,
             node_id=payload.node_id,
             node_version=payload.node_version or node.version,
+            **classification_codes,
             lifecycle_status=LifecycleStatus.DRAFT,
             type=payload.type,
             category=payload.category,
@@ -154,6 +278,8 @@ class NomenclatureCardService:
             price_currency=payload.price_currency,
             price_source=payload.price_source,
             price_valid_until=payload.price_valid_until,
+            price_confidence=payload.price_confidence,
+            related_nomenclature_ids=payload.related_nomenclature_ids,
             created_by_id=author_id,
             standard_parameters=payload.attributes_payload,
             required_parameters=None,
@@ -194,6 +320,14 @@ class NomenclatureCardService:
             changed_fields.append(field)
 
         if "attributes_payload" in changed_fields:
+            if card.node_id is None:
+                raise ValueError("Card is not linked to a classifier node")
+            try:
+                await SchemaRegistry.validate_payload(
+                    db, card.node_id, card.attributes_payload or {}
+                )
+            except (SchemaRegistryError, SchemaValidationError) as exc:
+                raise ValueError(str(exc)) from exc
             card.standard_parameters = card.attributes_payload
 
         card.last_editor_id = editor_id
@@ -223,12 +357,12 @@ class NomenclatureCardService:
         card = await db.get(Nomenclature, card_id)
         if not card:
             return None
-        card.lifecycle_status = payload.target_status
-        card.lifecycle_reason = payload.reason
-        card.effective_from = payload.effective_from or card.effective_from
-        card.effective_to = payload.effective_to
-        card.last_reviewed_at = datetime.utcnow()
-        card.last_editor_id = actor_id
+        await NomenclatureLifecycleService.change_status(
+            db=db,
+            card=card,
+            payload=payload,
+            actor_id=str(actor_id) if actor_id else None,
+        )
         await db.commit()
         await db.refresh(card)
         return card
@@ -241,6 +375,7 @@ class NomenclatureCardService:
     ) -> List[BulkOperationResult]:
         results: List[BulkOperationResult] = []
         touched_cards: List[Nomenclature] = []
+        actor_ref = str(actor_id) if actor_id else None
 
         for card_id in request.card_ids:
             card = await db.get(Nomenclature, card_id)
@@ -252,12 +387,20 @@ class NomenclatureCardService:
                 )
                 continue
 
-            card.lifecycle_status = request.change.target_status
-            card.lifecycle_reason = request.change.reason
-            card.effective_from = request.change.effective_from or card.effective_from
-            card.effective_to = request.change.effective_to
-            card.last_reviewed_at = datetime.utcnow()
-            card.last_editor_id = actor_id
+            try:
+                await NomenclatureLifecycleService.change_status(
+                    db=db,
+                    card=card,
+                    payload=request.change,
+                    actor_id=actor_ref,
+                )
+            except LifecycleValidationError as exc:
+                results.append(
+                    BulkOperationResult(
+                        card_id=card_id, status="error", message="; ".join(exc.errors)
+                    )
+                )
+                continue
             touched_cards.append(card)
             results.append(BulkOperationResult(card_id=card_id, status="updated"))
 
@@ -366,6 +509,9 @@ class NomenclatureCardService:
             node_version=card.node_version,
             code=card.code,
             canonical_name=card.canonical_name,
+            type=card.type,
+            category=card.category,
+            subclass=card.subclass,
             lifecycle_status=card.lifecycle_status,
             lifecycle_reason=card.lifecycle_reason,
             effective_from=card.effective_from,
@@ -382,10 +528,18 @@ class NomenclatureCardService:
             price_currency=card.price_currency,
             price_source=card.price_source,
             price_valid_until=card.price_valid_until,
+            price_confidence=card.price_confidence,
             usage_count=card.usage_count,
             average_price=card.average_price,
             version=card.version,
             audit=audit,
             position_usage=usage,
             tags=card.tags or {},
+            segment_code=card.segment_code,
+            family_code=card.family_code,
+            class_code=card.class_code,
+            category_code=card.category_code,
+            related_nomenclature_ids=card.related_nomenclature_ids or [],
+            audit_log_id=card.audit_log_id,
+            search_confidence=getattr(card, "search_confidence", None),
         )

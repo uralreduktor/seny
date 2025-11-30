@@ -7,6 +7,7 @@ OpenAPI Generator используется для автоматической �
 ## Установка
 
 ### Требования
+
 - Node.js 18+
 - Backend должен быть запущен на `http://localhost:8000` (или изменить URL в конфигурации)
 
@@ -56,7 +57,7 @@ curl http://localhost:8000/openapi.json -o backend/openapi.json
 
 После генерации в `frontend/src/api/generated` будут созданы:
 
-```
+```text
 generated/
 ├── api/                    # API клиенты по модулям
 │   ├── tenders-api.ts
@@ -76,24 +77,24 @@ generated/
 ### Импорт типов и клиентов
 
 ```typescript
-import { TendersApi, TenderResponse, TenderCreate } from '@/api/generated';
-import { Configuration } from '@/api/generated/base';
+import { TendersApi, TenderResponse, TenderCreate } from "@/api/generated";
+import { Configuration } from "@/api/generated/base";
 
 // Настройка конфигурации
 const apiConfig = new Configuration({
-  basePath: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-  accessToken: () => localStorage.getItem('access_token') || '',
+  basePath: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  accessToken: () => localStorage.getItem("access_token") || "",
 });
 
 // Создание клиента
 const tendersApi = new TendersApi(apiConfig);
 
 // Использование в компоненте с TanStack Query
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 function TenderList() {
   const { data, isLoading } = useQuery({
-    queryKey: ['tenders'],
+    queryKey: ["tenders"],
     queryFn: async () => {
       const response = await tendersApi.getTenders();
       return response.data;
@@ -117,16 +118,16 @@ function TenderList() {
 
 ```typescript
 // src/api/client.ts
-import { Configuration } from '@/api/generated/base';
+import { Configuration } from "@/api/generated/base";
 
 export const apiConfig = new Configuration({
-  basePath: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-  accessToken: () => localStorage.getItem('access_token') || '',
+  basePath: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  accessToken: () => localStorage.getItem("access_token") || "",
 });
 
 // src/api/tenders.ts
-import { TendersApi } from '@/api/generated';
-import { apiConfig } from './client';
+import { TendersApi } from "@/api/generated";
+import { apiConfig } from "./client";
 
 export const tendersApi = new TendersApi(apiConfig);
 ```
@@ -164,15 +165,18 @@ export const tendersApi = new TendersApi(apiConfig);
 ## Troubleshooting
 
 ### Ошибка: "Cannot connect to backend"
+
 - Убедись, что бэкенд запущен на `http://localhost:8000`
 - Проверь доступность: `curl http://localhost:8000/openapi.json`
 
 ### Ошибка: "Type errors after generation"
+
 - Проверь версию OpenAPI Generator: `openapi-generator-cli version`
 - Убедись, что используется TypeScript 5.3+
 - Проверь конфигурацию в `openapi-generator-config.yaml`
 
 ### Файлы не обновляются
+
 - Удали директорию `frontend/src/api/generated` и запусти генерацию заново
 - Проверь права доступа к файлам
 
@@ -195,4 +199,3 @@ export const tendersApi = new TendersApi(apiConfig);
 - [OpenAPI Generator документация](https://openapi-generator.tech/)
 - [TypeScript Axios генератор](https://openapi-generator.tech/docs/generators/typescript-axios)
 - [FastAPI OpenAPI документация](https://fastapi.tiangolo.com/tutorial/metadata/)
-

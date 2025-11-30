@@ -1,0 +1,16 @@
+[Unit]
+Description=SENY Backend Service
+After=network.target
+
+[Service]
+User=serveradmin
+Group=serveradmin
+WorkingDirectory=/var/www/seny/backend
+Environment="PATH=/home/serveradmin/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/serveradmin/.local/bin/poetry run uvicorn app.main:app --host 127.0.0.1 --port 8090 --workers 4 --proxy-headers --forwarded-allow-ips='*'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -20,16 +20,16 @@ sudo tee /etc/nginx/sites-available/seny.uralreduktor.com.temp > /dev/null <<EOF
 server {
     listen 80;
     listen [::]:80;
-    
+
     server_name $DOMAIN;
-    
+
     root /var/www/seny;
     index index.html index.htm;
-    
+
     location / {
         try_files \$uri \$uri/ =404;
     }
-    
+
     # Для проверки Let's Encrypt
     location ~ /.well-known/acme-challenge {
         allow all;
@@ -61,4 +61,3 @@ sudo certbot renew --dry-run
 
 echo "=== Готово! SSL сертификат настроен ==="
 echo "Проверьте сайт: https://$DOMAIN"
-

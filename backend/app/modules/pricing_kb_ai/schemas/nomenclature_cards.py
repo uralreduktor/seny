@@ -66,7 +66,9 @@ class NomenclatureCardBase(BaseModel):
     price_currency: str = "RUB"
     price_source: Optional[str] = None
     price_valid_until: Optional[datetime] = None
+    price_confidence: Optional[Decimal] = None
     tags: Dict[str, Any] = Field(default_factory=dict)
+    related_nomenclature_ids: List[int] = Field(default_factory=list)
 
 
 class NomenclatureCardCreate(NomenclatureCardBase):
@@ -79,6 +81,9 @@ class NomenclatureCardUpdate(BaseModel):
     files: Optional[List[CardFileInput]] = None
     methodology_ids: Optional[List[int]] = None
     synonyms: Optional[List[CardSynonym]] = None
+    type: Optional[str] = None
+    category: Optional[str] = None
+    subclass: Optional[str] = None
     manufacturer: Optional[str] = None
     standard_document: Optional[str] = None
     article: Optional[str] = None
@@ -87,11 +92,18 @@ class NomenclatureCardUpdate(BaseModel):
     price_currency: Optional[str] = None
     price_source: Optional[str] = None
     price_valid_until: Optional[datetime] = None
+    price_confidence: Optional[Decimal] = None
+    related_nomenclature_ids: Optional[List[int]] = None
     lifecycle_reason: Optional[str] = None
+    tags: Optional[Dict[str, Any]] = None
 
 
 class NomenclatureCard(NomenclatureCardBase):
     id: int
+    segment_code: Optional[str] = None
+    family_code: Optional[str] = None
+    class_code: Optional[str] = None
+    category_code: Optional[str] = None
     lifecycle_status: LifecycleStatus
     lifecycle_reason: Optional[str] = None
     effective_from: datetime
@@ -101,6 +113,8 @@ class NomenclatureCard(NomenclatureCardBase):
     version: int
     audit: CardAuditMeta
     position_usage: List[CardUsage] = Field(default_factory=list)
+    audit_log_id: Optional[int] = None
+    search_confidence: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 

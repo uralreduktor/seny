@@ -78,5 +78,3 @@ async def get_tender(
 # ❌ НЕПРАВИЛЬНО:
 def get_tender(tender_id, db):
     return db.query(Tender).filter(Tender.id == tender_id).first()
-    
-    

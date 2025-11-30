@@ -2,8 +2,8 @@
 # Используется для генерации TypeScript клиентов из OpenAPI спецификации FastAPI
 
 generatorName: typescript-axios
-inputSpec: http://localhost:8000/openapi.json
-outputDir: ./frontend/src/api/generated
+inputSpec: ../backend/openapi.json
+outputDir: ./src/api/generated
 
 # Дополнительные свойства для TypeScript генератора
 additionalProperties:
@@ -23,4 +23,3 @@ additionalProperties:
 globalProperties:
   apiTests: false
   modelTests: false
-

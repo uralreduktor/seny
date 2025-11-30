@@ -1,0 +1,130 @@
+```mermaid
+erDiagram
+    %% ---------- КЛАССИФИКАТОР ----------
+    NOMENCLATURE_NODES {
+        bigint id PK
+        bigint parent_id FK
+        varchar code
+        varchar name
+        enum node_type
+        smallint depth
+        int version
+        timestamptz effective_from
+        timestamptz effective_to
+        enum status
+        bool is_archived
+    }
+
+    NOMENCLATURE_CLASS_SCHEMA {
+        bigint id PK
+        bigint node_id FK
+        int version
+        jsonb json_schema
+        jsonb metadata
+        enum status
+        timestamptz published_at
+        bigint created_by_id FK
+    }
+
+    NOMENCLATURE_ATTRIBUTE_PRESETS {
+        bigint id PK
+        varchar code
+        varchar title
+        jsonb json_schema
+        int version
+        enum status
+    }
+
+    CLASS_SCHEMA_PRESETS {
+        bigint class_schema_id FK
+        bigint preset_id FK
+        enum mode // include/exclude
+    }
+
+    %% ---------- КАРТОЧКА ----------
+    NOMENCLATURES {
+        bigint id PK
+        bigint node_id FK
+        int node_version
+        varchar code
+        varchar canonical_name
+        enum lifecycle_status
+        jsonb attributes_payload
+        jsonb files
+        numeric base_price
+        numeric cost_price
+        varchar currency
+        varchar price_source
+        timestamptz price_valid_until
+        jsonb ai_embedding
+        int version
+        enum status
+        bigint created_by_id FK
+        bigint last_editor_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    NOMENCLATURE_CARD_VERSIONS {
+        bigint id PK
+        bigint card_id FK
+        int version
+        jsonb diff_payload
+        enum status
+        bigint author_id FK
+        text comment
+        timestamptz created_at
+    }
+
+    NOMENCLATURE_CARD_METHODS {
+        bigint card_id FK
+        bigint methodology_id FK
+        timestamptz linked_at
+    }
+
+    NOMENCLATURE_CARD_SYNONYMS {
+        bigint id PK
+        bigint card_id FK
+        varchar value
+        varchar lang
+    }
+
+    NOMENCLATURE_CARD_USAGE {
+        bigint card_id FK
+        bigint position_id FK
+        int usage_count
+        numeric average_price
+        timestamptz last_used_at
+    }
+
+    %% ---------- ВНЕШНИЕ ТАБЛИЦЫ И СВЯЗИ ----------
+    POSITIONS {
+        bigint id PK
+        bigint nomenclature_id FK
+        bigint tender_id FK
+    }
+
+    METHODOLOGIES {
+        bigint id PK
+        varchar name
+        int version
+    }
+
+    %% ---------- СВЯЗИ ----------
+    NOMENCLATURE_NODES ||--o{ NOMENCLATURE_NODES : "children"
+    NOMENCLATURE_NODES ||--o{ NOMENCLATURE_CLASS_SCHEMA : "has schema versions"
+    NOMENCLATURE_CLASS_SCHEMA }o--o{ CLASS_SCHEMA_PRESETS : "uses"
+    CLASS_SCHEMA_PRESETS }o--|| NOMENCLATURE_ATTRIBUTE_PRESETS : "references"
+
+    NOMENCLATURE_NODES ||--o{ NOMENCLATURES : "leaf nodes own cards"
+    NOMENCLATURES ||--o{ NOMENCLATURE_CARD_VERSIONS : "version history"
+    NOMENCLATURES ||--o{ NOMENCLATURE_CARD_SYNONYMS : "search aliases"
+    NOMENCLATURES ||--o{ NOMENCLATURE_CARD_USAGE : "usage stats"
+    NOMENCLATURES ||--o{ NOMENCLATURE_CARD_METHODS : "applicable methodologies"
+
+    NOMENCLATURE_CARD_METHODS }o--|| METHODOLOGIES : "links to"
+    NOMENCLATURE_CARD_USAGE }o--|| POSITIONS : "references tender positions"
+
+    %% Существующая связь tender positions -> номенклатура
+    POSITIONS }o--|| NOMENCLATURES : "position maps to card"
+```

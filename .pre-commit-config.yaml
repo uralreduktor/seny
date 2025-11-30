@@ -1,0 +1,97 @@
+# Pre-commit hooks для проекта TenderFlow KB AI
+# Установка: cd backend && poetry run pre-commit install
+# Запуск вручную: poetry run -C backend pre-commit run --all-files
+#
+# Примечание: mypy hook временно отключен из-за проблем с types-all зависимостями.
+# Mypy можно запускать вручную: poetry run -C backend mypy backend/
+
+default_language_version:
+  python: python3.12
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+repos:
+  # Общие проверки
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'  # Markdown файлы проверяются markdownlint
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Разрешить кастомные теги
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+
+  # Проверка форматирования Markdown
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix', '--config', '.markdownlint.json']
+        files: ^docs/.*\.md$|^\.cursor/rules/.*\.mdc$
+
+  # Проверка ссылок в Markdown (только внутренние ссылки)
+  - repo: local
+    hooks:
+      - id: check-markdown-links
+        name: Проверка ссылок в документации
+        entry: python3 scripts/check_docs_links.py
+        language: system
+        files: ^docs/.*\.md$|^\.cursor/rules/.*\.mdc$
+        pass_filenames: true
+        always_run: false
+
+  # Проверка специфичных правил проекта
+  - repo: local
+    hooks:
+      - id: check-docs-rules
+        name: Проверка правил документации проекта
+        entry: python3 scripts/check_docs_rules.py
+        language: system
+        files: ^docs/.*\.md$|^\.cursor/rules/.*\.mdc$
+        pass_filenames: true
+        always_run: false
+        # Разрешаем предупреждения (exit code 0)
+        fail_fast: false
+
+  # Python форматирование и линтинг
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.12
+        files: ^backend/.*\.py$|^scripts/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile', 'black']
+        files: ^backend/.*\.py$|^scripts/.*\.py$
+
+  # Mypy проверка типов (опционально, можно отключить если вызывает проблемы)
+  # Раскомментируйте, если нужно включить проверку типов
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: []
+  #       args: ['--ignore-missing-imports', '--no-strict-optional', '--no-error-summary']
+  #       files: ^backend/.*\.py$
+  #       exclude: ^backend/tests/.*\.py$

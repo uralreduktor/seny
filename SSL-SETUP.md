@@ -117,4 +117,3 @@ sudo systemctl status certbot.timer
 sudo certbot renew
 sudo systemctl reload nginx
 ```
-

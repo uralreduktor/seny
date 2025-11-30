@@ -42,4 +42,3 @@
 # OpenAPI
 *.json linguist-generated=true
 frontend/src/api/generated/** linguist-generated=true
-
